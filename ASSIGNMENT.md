@@ -9,8 +9,11 @@ Deliverables asked for: a reconciliation bridge from the naive query to the
 final number with a reason per adjustment, the SQL that computes it, and a
 short note on anything surprising in the data.
 
-The full brief and the supporting data folder were supplied privately and are
-not reproduced here.
+The dataset itself is included under [`data/`](data/) so every query here is
+runnable as-is. The brief document and the dataset generator that shipped
+alongside it are deliberately **not** reproduced — the generator in particular
+spells out the intended construction, and publishing it would give the
+exercise away.
 
 | Required | Location |
 |---|---|
