@@ -5,6 +5,9 @@
 -- Each row is a step in the order I actually discovered I needed it.
 -- Steps 3-5 are WRONG models kept deliberately: the bridge is the record
 -- of the investigation, not a tidied-up final answer.
+--
+-- Step 6 is the final value, 22. It is recomputed independently (and more
+-- readably) in sql/03_target_base.sql; the two agree by construction.
 -- =====================================================================
 
 WITH RECURSIVE

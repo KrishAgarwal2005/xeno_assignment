@@ -14,20 +14,26 @@ sqlite3 -box data/comm_log.db < sql/03_target_base.sql   # -> 22
 
 ## TL;DR
 
-The gap is **not** one adjustment, it is three, and one of them moves in the
-*opposite* direction to the other two:
+Two adjustments account for the entire gap — plus a third instinct you must
+deliberately **not** act on:
 
 | | |
 |---|---|
-| **−4** | Campaign `9004` has `processing_status = 'processed'` but is still `approval_awaiting`. Its sends exist in the log but have not cleared sign-off. |
-| **−5** | Retry chains. `9001→9002→9003` and `9201→9202` are each **one** underlying communication. A customer who needed three attempts counts once. |
-| **+1** | Campaign `9101` is **standalone**, so it is *not* deduped. `C20` was legitimately re-targeted on 10-Oct and 20-Oct — that is two events, not one. |
+| **−4** | Campaign `9004` is `processing_status = 'processed'` but still `approval_awaiting`. Its four sends sit in the log without having cleared sign-off. |
+| **−4** | Retry chains collapse to distinct customers. `9001→9002→9003` is one underlying communication (13 rows → 10 customers, **−3**); `9201→9202` is another (6 → 5, **−1**). A customer who needed three attempts counts once. |
+| **±0** | Campaign `9101` is **standalone**, so it is *not* deduped. `C20` was legitimately re-targeted on 10-Oct and 20-Oct — two events, not one. |
 
-`30 − 4 − 5 + 1 = 22`
+`30 − 4 − 4 = 22`
 
-The `+1` is the whole exercise. Every dedupe instinct says "collapse the
-duplicate customer"; the data dictionary says the opposite for standalone
-campaigns, and skipping that line lands you on 21.
+That last row is the whole exercise. It contributes nothing to the arithmetic,
+which is exactly why it is easy to miss: every dedupe instinct says "collapse
+the duplicate customer", and the one line in the data dictionary that says
+otherwise is worth a full send. Dedupe `9101` along with everything else and
+you land on **21** — a plausible-looking answer with no obvious error in it.
+
+*(The bridge below reaches 22 by a different route, because that is the order I
+actually found things: it over-deduped to 21 at step 5 and corrected at step 6.
+Same destination, and the wrong turn is kept on purpose.)*
 
 ---
 
@@ -44,7 +50,8 @@ the order I discovered I needed them, wrong turns included.
 | 3 | Dedupe customers per **campaign** (`DISTINCT communication_id, customer_id`) | **25** | **−1.** First dedupe attempt. Wrong model: it treats each retry campaign as its own communication, so a retried customer still counts once per attempt. |
 | 4 | Collapse retries one level — dedupe per `COALESCE(parent_id, id)` | **22** | **−3.** Matches Finance. I did not stop here — see step 5. |
 | 5 | Resolve chains **recursively** to the true root (`9003→9002→9001`) | **21** | **−1, and it breaks the match.** But it is the correct fix: one level of `parent_id` leaves `9003` in its own bucket, double-counting `C3`. Losing 22 here is what exposed the *second* error. |
-| 6 | Stop deduping **standalone** campaigns — count their rows (`9101`) | **22** ✅ | **+1.** A standalone campaign is not a chain; every send is its own event. `C20` counts twice. Restores 22 for the right reason. |
+| 6 | Stop deduping **standalone** campaigns — count their rows (`9101`) | **22** | **+1.** A standalone campaign is not a chain; every send is its own event. `C20` counts twice. Restores 22 for the right reason. |
+| **final** | `target_base` — [`sql/03_target_base.sql`](sql/03_target_base.sql) | **22** ✅ | Matches Finance. |
 
 ### Why step 4 is the trap
 
